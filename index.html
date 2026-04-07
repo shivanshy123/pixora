@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>PIXORA</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_KEY",
+  authDomain: "PASTE.firebaseapp.com",
+  projectId: "PASTE",
+  appId: "PASTE"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+window.googleLogin = function(){
+signInWithPopup(auth, provider)
+.then(()=>{
+alert("Login Success ?");
+document.getElementById("loginBox").style.display="none";
+})
+.catch((e)=>alert(e.message));
+}
+
+window.skipLogin = function(){
+document.getElementById("loginBox").style.display="none";
+}
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+font-family:'Segoe UI',Arial;
+background:linear-gradient(-45deg,#ff6b6b,#feca57,#ff9ff3,#54a0ff);
+background-size:400% 400%;
+animation:gradientShift 15s ease infinite;
+text-align:center;
+color:white;
+padding-bottom:120px;
+}
+
+#loader{
+position:fixed;
+width:100%;
+height:100%;
+background:#0b0f2a;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+z-index:9999;
+}
+
+.bar{width:200px;height:8px;background:#333;border-radius:10px;margin-top:10px;overflow:hidden;}
+#progress{height:100%;width:0%;background:#00ffcc;}
+
+#main{display:none;}
+
+#loginBox{
+position:fixed;
+top:0;left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.9);
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+z-index:9998;
+}
+
+button{padding:12px 20px;margin:10px;border:none;border-radius:10px;cursor:pointer;}
+.google{background:white;color:black;}
+.skip{background:#555;color:white;}
+
+@keyframes gradientShift{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+h1{margin:20px;}
+.desc{margin:10px 20px;font-size:14px;opacity:0.9;}
+
+.btn{
+display:block;width:300px;margin:12px auto;padding:16px;
+background:rgba(0,0,0,0.8);
+border-radius:20px;color:white;font-weight:bold;
+cursor:pointer;border:2px solid rgba(255,255,255,0.3);
+}
+
+.box{display:none;background:rgba(255,255,255,0.15);padding:20px;margin:15px;border-radius:20px;}
+
+canvas,img{
+width:100%;
+max-width:400px;
+height:auto;
+margin:10px;
+border-radius:15px;
+}
+
+.loader{display:none;margin-top:10px;font-weight:bold;}
+</style>
+</head>
+
+<body>
+
+<!-- LOADING -->
+<div id="loader">
+<h2 id="percent">0%</h2>
+<div class="bar"><div id="progress"></div></div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginBox">
+<h2>Sign In</h2>
+<button class="google" onclick="googleLogin()">Sign in with Google</button>
+<button class="skip" onclick="skipLogin()">Skip</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+<h1>PIXORA</h1>
+
+<div class="desc">
+Edit your photos online using AI tools like background remover, face swap and HD enhancement.
+</div>
+
+<button class="btn" onclick="showBox('remove')">Remove Background</button>
+<button class="btn" onclick="showBox('change')">Change Background</button>
+<button class="btn" onclick="showBox('face')">Face Swap</button>
+<button class="btn" onclick="showBox('hd')">HD Enhance</button>
+
+<!-- REMOVE -->
+<div id="remove" class="box">
+<input type="file" id="file"><br>
+<img id="preview"><br>
+<button onclick="removeBg()">Remove BG</button>
+<div id="loading" class="loader">Processing...</div>
+<img id="output"><br>
+<a id="download" class="btn" style="display:none;">Download</a>
+</div>
+
+<!-- CHANGE BG -->
+<div id="change" class="box">
+<input type="file" id="userImg"><br>
+<input type="file" id="bgImg"><br>
+<canvas id="canvas"></canvas><br>
+<button onclick="mergeImages()">Change BG</button>
+</div>
+
+<!-- FACE -->
+<div id="face" class="box">
+<input type="file" id="face1"><br>
+<input type="file" id="face2"><br>
+<canvas id="faceCanvas"></canvas><br>
+<button onclick="swapFace()">Swap Face</button>
+</div>
+
+<!-- HD -->
+<div id="hd" class="box">
+<input type="file" id="hdInput"><br>
+<canvas id="hdCanvas"></canvas><br>
+
+<button onclick="applyFilter('enhance')">Enhance</button>
+<button onclick="applyFilter('dynamic')">Dynamic</button>
+<button onclick="applyFilter('boost')">Boost</button>
+
+<button onclick="downloadHD()">Download</button>
+</div>
+
+</div>
+
+<script>
+// LOADER
+let p=0;
+let interval=setInterval(()=>{
+p++;
+percent.innerText=p+"%";
+progress.style.width=p+"%";
+
+if(p>=100){
+clearInterval(interval);
+loader.style.display="none";
+main.style.display="block";
+}
+},20);
+
+// SHOW BOX
+function showBox(id){
+document.querySelectorAll('.box').forEach(b=>b.style.display='none');
+document.getElementById(id).style.display='block';
+}
+
+// PREVIEW
+file.onchange=e=>{
+preview.src=URL.createObjectURL(e.target.files[0]);
+}
+
+// REMOVE BG
+const API_KEY="8XZHa9HrEwCKpF7JRGuTufDT";
+
+async function removeBg(){
+let f=file.files[0];
+if(!f) return alert("Select image");
+
+loading.style.display="block";
+
+let fd=new FormData();
+fd.append("image_file",f);
+
+let res=await fetch("https://api.remove.bg/v1.0/removebg",{
+method:"POST",
+headers:{"X-Api-Key":API_KEY},
+body:fd
+});
+
+loading.style.display="none";
+
+let blob=await res.blob();
+let url=URL.createObjectURL(blob);
+
+output.src=url;
+download.href=url;
+download.style.display="block";
+}
+
+// CHANGE BG (FIXED)
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+
+function mergeImages(){
+let u=new Image();
+let b=new Image();
+
+u.src=URL.createObjectURL(userImg.files[0]);
+b.src=URL.createObjectURL(bgImg.files[0]);
+
+u.onload=()=>{
+b.onload=()=>{
+canvas.width=u.width;
+canvas.height=u.height;
+
+ctx.drawImage(b,0,0,canvas.width,canvas.height);
+ctx.drawImage(u,0,0,canvas.width,canvas.height);
+}}
+}
+
+// FACE (FIXED)
+function swapFace(){
+let img1=new Image();
+let img2=new Image();
+
+img1.src=URL.createObjectURL(face1.files[0]);
+img2.src=URL.createObjectURL(face2.files[0]);
+
+let c=document.getElementById("faceCanvas");
+let ctx=c.getContext("2d");
+
+img1.onload=()=>{
+c.width=img2.width;
+c.height=img2.height;
+
+ctx.drawImage(img2,0,0,c.width,c.height);
+ctx.drawImage(img1,c.width/4,c.height/6,c.width/3,c.height/3);
+}
+}
+
+// HD FILTER
+const hdCanvas=document.getElementById("hdCanvas");
+const hdCtx=hdCanvas.getContext("2d");
+let originalImage=null;
+let currentFilter="enhance";
+
+hdInput.onchange=()=>{
+let img=new Image();
+img.src=URL.createObjectURL(hdInput.files[0]);
+
+img.onload=()=>{
+originalImage=img;
+hdCanvas.width=img.width;
+hdCanvas.height=img.height;
+drawHD();
+}
+};
+
+function drawHD(){
+if(!originalImage) return;
+
+hdCtx.clearRect(0,0,hdCanvas.width,hdCanvas.height);
+
+if(currentFilter=="enhance") hdCtx.filter="contrast(110%)";
+if(currentFilter=="dynamic") hdCtx.filter="contrast(120%) saturate(130%)";
+if(currentFilter=="boost") hdCtx.filter="contrast(140%)";
+
+hdCtx.drawImage(originalImage,0,0,hdCanvas.width,hdCanvas.height);
+}
+
+function applyFilter(type){
+currentFilter=type;
+drawHD();
+}
+
+function downloadHD(){
+let link=document.createElement("a");
+link.href=hdCanvas.toDataURL();
+link.download="pixora.png";
+link.click();
+}
+</script>
+
+<!-- FOOTER -->
+<div style="position:fixed; bottom:0; width:100%; background:black; padding:10px;">
+<a href="privacy.html" style="color:white; margin:10px;">Privacy</a>
+<a href="about.html" style="color:white; margin:10px;">About</a>
+<a href="contact.html" style="color:white; margin:10px;">Contact</a>
+</div>
+
+</body>
+</html>
